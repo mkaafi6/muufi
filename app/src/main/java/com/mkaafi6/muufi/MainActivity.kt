@@ -1,6 +1,7 @@
 package com.mkaafi6.muufi
 
 import android.annotation.SuppressLint
+import android.content.Context
 import android.content.pm.ActivityInfo
 import android.graphics.Bitmap
 import android.os.Bundle
@@ -40,6 +41,16 @@ class MainActivity : AppCompatActivity() {
     private val homeUrl = "https://mkaafi6.github.io/muufi/"
     private val offlineUrl = "https://appassets.androidplatform.net/assets/offline.html"
 
+    private val prefsName = "muufi"
+    private val prefBlockAds = "block_ads"
+
+    /** Human-readable ad-blocker state shown in the About dialog / toast. */
+    @Volatile
+    private var adsState = "not started"
+
+    /** URLs already cleaned once, to avoid rewrite/redirect loops. */
+    private val recentlyRewritten = HashSet<String>()
+
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -59,18 +70,14 @@ class MainActivity : AppCompatActivity() {
 
         wireBottomBar()
 
-        // Build the ad-blocking engine in the background, then reload the page.
-        Thread {
-            try {
-                val dir = prepareFilters()
-                AdBlocker.init(dir.absolutePath)
-                runOnUiThread {
-                    if (AdBlocker.isReady()) webView.reload()
-                }
-            } catch (t: Throwable) {
-                runOnUiThread { Toast.makeText(this, "Ad blocker failed to start", Toast.LENGTH_SHORT).show() }
-            }
-        }.start()
+        // Build the ad-blocking engine in the background (unless disabled), then
+        // pop up the install result and reload the page.
+        if (adsEnabled()) {
+            startAdBlocker()
+        } else {
+            adsState = "disabled"
+            Toast.makeText(this, "Ad blocker: OFF", Toast.LENGTH_SHORT).show()
+        }
 
         webView.loadUrl(homeUrl)
     }
@@ -104,7 +111,7 @@ class MainActivity : AppCompatActivity() {
                     return assetLoader.shouldInterceptRequest(url)
                 }
 
-                if (!AdBlocker.isReady()) return null
+                if (!adsEnabled() || !AdBlocker.isReady()) return null
 
                 return try {
                     val type = requestType(request)
@@ -125,6 +132,36 @@ class MainActivity : AppCompatActivity() {
                     }
                 } catch (t: Throwable) {
                     null
+                }
+            }
+
+            // `$removeparam` — strip tracking query parameters from top-level
+            // navigations (Brave's "aggressive" behaviour).
+            override fun shouldOverrideUrlLoading(
+                view: WebView?,
+                request: WebResourceRequest?
+            ): Boolean {
+                val req = request ?: return false
+                if (!adsEnabled() || !AdBlocker.isReady()) return false
+                // Only clean GET navigations; never turn a form POST into a GET.
+                if (!req.method.equals("GET", ignoreCase = true)) return false
+                val url = req.url?.toString() ?: return false
+                if (url.startsWith("https://appassets.androidplatform.net")) return false
+                if (recentlyRewritten.contains(url)) return false
+                return try {
+                    val rewritten = AdBlocker.nativeRewrite(
+                        url, view?.url ?: "", "document", req.method ?: "GET"
+                    )
+                    if (rewritten.isNotEmpty() && rewritten != url) {
+                        recentlyRewritten.add(url)
+                        if (recentlyRewritten.size > 256) recentlyRewritten.clear()
+                        view?.loadUrl(rewritten)
+                        true
+                    } else {
+                        false
+                    }
+                } catch (t: Throwable) {
+                    false
                 }
             }
 
@@ -256,6 +293,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun injectCosmetics(pageUrl: String) {
+        if (!adsEnabled()) return
         Thread {
             val json = try {
                 AdBlocker.nativeCosmetics(pageUrl)
@@ -301,12 +339,76 @@ class MainActivity : AppCompatActivity() {
         }
         findViewById<LinearLayout>(R.id.btnBack).setOnClickListener { goBack() }
         findViewById<LinearLayout>(R.id.btnInfo).setOnClickListener {
+            val adsLine = "Ad blocker: " + if (adsEnabled()) "ON" else "OFF"
             AlertDialog.Builder(this)
                 .setTitle(R.string.about_title)
-                .setMessage(R.string.about_body)
-                .setPositiveButton(android.R.string.ok, null)
+                .setMessage(getString(R.string.about_body) + "\n\n$adsLine\nStatus: $adsState")
+                .setPositiveButton("Toggle ads") { _, _ -> toggleAds() }
+                .setNeutralButton("Reload") { _, _ -> webView.reload() }
+                .setNegativeButton("Close", null)
                 .show()
         }
+    }
+
+    private fun prefs() = getSharedPreferences(prefsName, Context.MODE_PRIVATE)
+
+    private fun adsEnabled(): Boolean = prefs().getBoolean(prefBlockAds, true)
+
+    private fun toggleAds() {
+        val nowEnabled = !adsEnabled()
+        prefs().edit().putBoolean(prefBlockAds, nowEnabled).apply()
+        if (nowEnabled) {
+            Toast.makeText(this, "Ad blocker: ON", Toast.LENGTH_SHORT).show()
+            if (!AdBlocker.isReady()) startAdBlocker()
+        } else {
+            adsState = "disabled"
+            Toast.makeText(this, "Ad blocker: OFF", Toast.LENGTH_SHORT).show()
+        }
+        webView.reload()
+    }
+
+    /**
+     * Builds the ad-blocking engine off the main thread and reports the result
+     * with a toast (mirrors the GeckoView edition's "uBO: installed" popup).
+     */
+    private fun startAdBlocker() {
+        adsState = "installing…"
+        Toast.makeText(this, "Ad blocker: installing…", Toast.LENGTH_SHORT).show()
+        Thread {
+            val status = try {
+                val dir = prepareFilters()
+                val resources = prepareResources()
+                AdBlocker.init(dir.absolutePath, resources.absolutePath)
+            } catch (t: Throwable) {
+                AdBlocker.failure(t.message ?: t.javaClass.simpleName)
+            }
+            val ok = try {
+                JSONObject(status).optBoolean("ok", false)
+            } catch (t: Throwable) {
+                false
+            }
+            runOnUiThread {
+                adsState = if (ok) {
+                    val obj = try { JSONObject(status) } catch (t: Throwable) { JSONObject() }
+                    val lists = obj.optInt("lists", 0)
+                    val resources = obj.optInt("resources", 0)
+                    "installed ($lists lists, $resources resources)"
+                } else {
+                    val err = try {
+                        JSONObject(status).optString("error", "unknown error")
+                    } catch (t: Throwable) {
+                        "unknown error"
+                    }
+                    "INSTALL FAILED: $err"
+                }
+                Toast.makeText(
+                    this@MainActivity,
+                    "Ad blocker: $adsState",
+                    if (ok) Toast.LENGTH_SHORT else Toast.LENGTH_LONG
+                ).show()
+                if (ok) webView.reload()
+            }
+        }.start()
     }
 
     private fun goBack() {
@@ -460,5 +562,18 @@ class MainActivity : AppCompatActivity() {
             }
         }
         return outDir
+    }
+
+    /**
+     * Copies the bundled adblock-rust resources (Brave + uBO `$redirect`
+     * replacements and scriptlets) out of assets once, and returns the file.
+     */
+    private fun prepareResources(): File {
+        val out = File(filesDir, "adblock-resources.json")
+        if (out.exists() && out.length() > 0) return out
+        assets.open("adblock/resources.json").use { input ->
+            out.outputStream().use { dest -> input.copyTo(dest) }
+        }
+        return out
     }
 }

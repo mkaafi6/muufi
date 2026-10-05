@@ -1,5 +1,7 @@
 package com.mkaafi6.muufi
 
+import org.json.JSONObject
+
 /**
  * JNI bridge to the Rust ad-blocking engine (adblock-rust).
  *
@@ -12,14 +14,31 @@ object AdBlocker {
         System.loadLibrary("muufi_adblock")
     }
 
-    /** Builds the engine from every *.txt file in [filterDir]. Returns true on success. */
-    external fun nativeInit(filterDir: String): Boolean
+    /**
+     * Builds the engine from every *.txt file in [filterDir] and loads the
+     * `$redirect`/scriptlet resources from [resourcesPath].
+     *
+     * Returns a JSON status string: `{"ok":true,"lists":N,"resources":M}` or
+     * `{"ok":false,"error":"..."}`.
+     */
+    external fun nativeInit(filterDir: String, resourcesPath: String): String
 
     /**
      * Network check. Returns:
      *   "B" -> block, "R" + body -> redirect resource, "N" -> allow.
      */
     external fun nativeCheck(
+        url: String,
+        sourceUrl: String,
+        requestType: String,
+        method: String
+    ): String
+
+    /**
+     * `$removeparam` support. Returns a rewritten URL for a top-level
+     * navigation, or "" when nothing should change.
+     */
+    external fun nativeRewrite(
         url: String,
         sourceUrl: String,
         requestType: String,
@@ -40,7 +59,22 @@ object AdBlocker {
 
     fun isReady(): Boolean = ready
 
-    fun init(filterDir: String) {
-        ready = nativeInit(filterDir)
+    /** Initializes the engine and updates [ready]. Returns the status JSON. */
+    fun init(filterDir: String, resourcesPath: String): String {
+        val status = try {
+            nativeInit(filterDir, resourcesPath)
+        } catch (t: Throwable) {
+            "{\"ok\":false,\"error\":" + JSONObject.quote(t.message ?: "native error") + "}"
+        }
+        ready = try {
+            JSONObject(status).optBoolean("ok", false)
+        } catch (t: Throwable) {
+            false
+        }
+        return status
     }
+
+    /** Builds a status JSON object without initializing (for the error path). */
+    fun failure(message: String): String =
+        "{\"ok\":false,\"error\":" + JSONObject.quote(message) + "}"
 }

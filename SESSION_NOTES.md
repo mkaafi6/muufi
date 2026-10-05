@@ -14,7 +14,7 @@
 - Generic **TV launcher icon**.
 - Native **top app bar** + **bottom nav** (Home / Refresh / Back / Share / About).
   System status bar + navigation bar stay visible (not fullscreen / not edge-to-edge).
-- Target: **≤10 MB**, **arm64-v8a** only, R8 release build.
+- Target: **≤20 MB**, **arm64-v8a** only, R8 release build.
 
 ## Why not Tauri / Flutter
 
@@ -91,10 +91,34 @@
 - Reality: this is the ceiling for a WebView app. Literal uBO needs GeckoView
   (~50–70 MB).
 
+## v4 changes (toggle + status + max-aggressive blocking)
+
+- **Ad-blocker toggle** (About → "Toggle ads"), persisted in
+  `SharedPreferences("muufi").block_ads`. When OFF, request interception and
+  cosmetic injection are skipped.
+- **Install status popup:** `nativeInit` now returns a JSON status; the app toasts
+  `Ad blocker: installed (N lists, M resources)` or
+  `Ad blocker: INSTALL FAILED: <reason>` (mirrors muufi-gecko's uBO toast), and
+  shows the state in About.
+- **Resources (`$redirect` + scriptlets):** `tools/build-resources.mjs` merges
+  Brave's `adblock-resources/dist/resources.json` with uBO's
+  `web_accessible_resources` + `redirect-resources.js` into
+  `assets/adblock/resources.json` (63 resources, ~720 KB), loaded with
+  `Engine::use_resources`. `nativeCheck` now prefers a `$redirect` body over an
+  outright block (Brave behaviour).
+- **`$removeparam`:** new `nativeRewrite` JNI + `shouldOverrideUrlLoading` strip
+  tracking query params on top-level navigations.
+- **Bigger, aggressive list set** (`tools/fetch-filters.sh`): added AdGuard
+  Tracking/URL-Tracking/Annoyances, Brave first-party/cookie/social/android,
+  Fanboy annoyance/social/newsletter/mobile, URLhaus. Asset total ~9.1 MB gzip;
+  budget raised to ≤20 MB.
+- **Still a gap:** uBO's *newer* ES-module scriptlet format (`##+js(...)`) is not
+  converted to `Resource`s, so those injections remain limited (adblock-rust's
+  deprecated parser only understands the old format).
+
 ## TODO
 
-- [ ] Install on device; verify ads are blocked and fullscreen video works.
-- [ ] Optional: bundle uBO scriptlet/`$redirect` resources (biggest remaining gap).
-- [ ] Optional: bundle uBO scriptlet/redirect resources (`use_resources`) for `##+js(...)`.
-- [ ] Optional: real release keystore + `$redirect` support.
+- [ ] Install on device; verify ads are blocked, the toggle works, and fullscreen video works.
+- [ ] Optional: convert uBO's new scriptlet format into resources for `##+js(...)`.
+- [ ] Optional: real release keystore.
 - [ ] User updates `app/src/main/assets/sites.json`; tell me when to change it.
