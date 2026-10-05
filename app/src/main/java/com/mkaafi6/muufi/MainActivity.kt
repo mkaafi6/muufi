@@ -18,6 +18,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.Toolbar
 import androidx.webkit.WebViewAssetLoader
 import org.json.JSONObject
+import java.io.BufferedInputStream
 import java.io.ByteArrayInputStream
 import java.io.File
 import java.util.zip.GZIPInputStream
@@ -223,7 +224,13 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    /** Decompresses the gzipped bundled filter lists into filesDir/filters once. */
+    /**
+     * Copies the bundled filter lists into filesDir/filters once.
+     *
+     * Note: the Android build (AAPT) automatically decompresses `*.gz` assets
+     * and strips the extension, so the files here may be plain text. We sniff
+     * the gzip magic bytes so this works either way.
+     */
     private fun prepareFilters(): File {
         val outDir = File(filesDir, "filters")
         if (!outDir.exists()) outDir.mkdirs()
@@ -232,9 +239,14 @@ class MainActivity : AppCompatActivity() {
             val out = File(outDir, name.removeSuffix(".gz"))
             if (out.exists() && out.length() > 0) continue
             assets.open("filters/$name").use { input ->
-                GZIPInputStream(input).use { gz ->
-                    out.outputStream().use { gz.copyTo(it) }
-                }
+                val buffered = BufferedInputStream(input)
+                buffered.mark(2)
+                val b0 = buffered.read()
+                val b1 = buffered.read()
+                buffered.reset()
+                val gzipped = b0 == 0x1f && b1 == 0x8b
+                val source = if (gzipped) GZIPInputStream(buffered) else buffered
+                out.outputStream().use { dest -> source.copyTo(dest) }
             }
         }
         return outDir

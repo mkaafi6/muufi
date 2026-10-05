@@ -47,9 +47,21 @@
 - **Cargo features:** `default-features = false, features = ["embedded-domain-resolver",
   "full-regex-handling"]` — dropping default `single-thread` makes `Engine` `Send + Sync`.
 
+## Status
+
+- [x] CI APK build green — run 37256364196 (4m34s). **APK ~4.2 MB** ✅
+- [x] Native lib `lib/arm64-v8a/libmuufi_adblock.so` (2.16 MB); filter lists bundled.
+- [ ] Install on device; verify ads are actually blocked.
+
+## Gotchas learned
+
+- **AAPT auto-decompresses `*.gz` assets** and strips the `.gz` extension, so
+  filter files arrive in the APK as plain `.txt`. `prepareFilters()` sniffs the
+  gzip magic bytes (`0x1f 0x8b`) to handle either form.
+- jni 0.21: convert `JavaStr` with `String::from`/`.into()` — it has no `ToString`.
+
 ## TODO
 
-- [ ] Get the CI APK build green; confirm size ~5–10 MB.
 - [ ] Install on device; verify ads are blocked on the sources.
 - [ ] Optional: bundle uBO scriptlet/redirect resources (`use_resources`) for `##+js(...)`.
 - [ ] Optional: real release keystore + `$redirect` support.
