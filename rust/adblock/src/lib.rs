@@ -47,7 +47,7 @@ pub extern "system" fn Java_com_mkaafi6_muufi_AdBlocker_nativeInit<'local>(
     filter_dir: JString<'local>,
 ) -> jboolean {
     let dir: String = match env.get_string(&filter_dir) {
-        Ok(s) => s.to_string(),
+        Ok(s) => s.into(),
         Err(_) => return JNI_FALSE,
     };
 
@@ -70,20 +70,20 @@ pub extern "system" fn Java_com_mkaafi6_muufi_AdBlocker_nativeShouldBlock<'local
     method: JString<'local>,
 ) -> jboolean {
     let url: String = match env.get_string(&url) {
-        Ok(s) => s.to_string(),
+        Ok(s) => s.into(),
         Err(_) => return JNI_FALSE,
     };
     let source: String = env
         .get_string(&source)
-        .map(|s| s.to_string())
+        .map(String::from)
         .unwrap_or_default();
     let request_type: String = env
         .get_string(&request_type)
-        .map(|s| s.to_string())
+        .map(String::from)
         .unwrap_or_else(|_| "other".to_string());
     let method: String = env
         .get_string(&method)
-        .map(|s| s.to_string())
+        .map(String::from)
         .unwrap_or_else(|_| "GET".to_string());
 
     let engine = match ENGINE.get() {
@@ -110,7 +110,7 @@ pub extern "system" fn Java_com_mkaafi6_muufi_AdBlocker_nativeCosmetics<'local>(
     url: JString<'local>,
 ) -> jstring {
     let url: String = match env.get_string(&url) {
-        Ok(s) => s.to_string(),
+        Ok(s) => s.into(),
         Err(_) => return std::ptr::null_mut(),
     };
 
