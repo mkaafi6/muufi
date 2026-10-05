@@ -61,9 +61,27 @@
   gzip magic bytes (`0x1f 0x8b`) to handle either form.
 - jni 0.21: convert `JavaStr` with `String::from`/`.into()` — it has no `ToString`.
 
+## v2 changes (bars + fullscreen + stronger blocking)
+
+- **Compact bars:** toolbar + bottom bar now **44dp** (were 56dp / ~50dp).
+- **Fullscreen video:** added a `WebChromeClient`
+  (`onShowCustomView`/`onHideCustomView`) + fullscreen overlay + immersive system
+  bars + landscape orientation. YouTube fullscreen now works.
+- **Stronger ad blocking:**
+  - Request typing now uses the **`Sec-Fetch-Dest` header** (exact resource type)
+    instead of guessing from the URL/extension.
+  - Added AdGuard Base, AdGuard Mobile, uBO quick-fixes, uBO unbreak, EasyList
+    Cookie (dropped AdGuard Tracking to stay near the size budget).
+- **Cromite parity is not possible here:** Cromite is a Chromium fork with a C++
+  AdBlock Plus engine + CNAME uncloaking + native WebSocket blocking. A WebView
+  app can't do that; we approximate with adblock-rust + uBO filter syntax.
+- Known gap: uBO **scriptlet/`$redirect` resources** are not loaded (adblock-rust's
+  assembler only supports uBO's deprecated format).
+
 ## TODO
 
-- [ ] Install on device; verify ads are blocked on the sources.
+- [ ] Install on device; verify ads are blocked and fullscreen video works.
+- [ ] Optional: bundle uBO scriptlet resources for tougher sites.
 - [ ] Optional: bundle uBO scriptlet/redirect resources (`use_resources`) for `##+js(...)`.
 - [ ] Optional: real release keystore + `$redirect` support.
 - [ ] User updates `app/src/main/assets/sites.json`; tell me when to change it.

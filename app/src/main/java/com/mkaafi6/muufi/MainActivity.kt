@@ -2,16 +2,20 @@ package com.mkaafi6.muufi
 
 import android.annotation.SuppressLint
 import android.content.Intent
+import android.content.pm.ActivityInfo
 import android.graphics.Bitmap
 import android.os.Bundle
 import android.view.View
 import android.webkit.CookieManager
+import android.webkit.WebChromeClient
+import android.webkit.WebChromeClient.CustomViewCallback
 import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
@@ -28,6 +32,8 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var webView: WebView
     private lateinit var assetLoader: WebViewAssetLoader
+    private lateinit var toolbar: Toolbar
+    private lateinit var fullscreenContainer: FrameLayout
 
     private val homeUrl = "https://mkaafi6.github.io/muufi/"
     private val offlineUrl = "https://appassets.androidplatform.net/assets/offline.html"
@@ -37,9 +43,10 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        val toolbar = findViewById<Toolbar>(R.id.toolbar)
+        toolbar = findViewById(R.id.toolbar)
         setSupportActionBar(toolbar)
         supportActionBar?.title = getString(R.string.app_name)
+        fullscreenContainer = findViewById(R.id.fullscreenContainer)
 
         assetLoader = WebViewAssetLoader.Builder()
             .addPathHandler("/assets/", WebViewAssetLoader.AssetsPathHandler(this))
@@ -136,13 +143,83 @@ class MainActivity : AppCompatActivity() {
         }
 
         webView.setOnLongClickListener { true }
+
+        // Handles HTML5 fullscreen video (e.g. YouTube).
+        webView.webChromeClient = object : WebChromeClient() {
+            private var customView: View? = null
+
+            override fun onShowCustomView(view: View?, callback: CustomViewCallback?) {
+                if (customView != null) {
+                    callback?.onCustomViewHidden()
+                    return
+                }
+                customView = view
+                fullscreenContainer.addView(view)
+                fullscreenContainer.visibility = View.VISIBLE
+                toolbar.visibility = View.GONE
+                findViewById<View>(R.id.bottombar).visibility = View.GONE
+                requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+                enterImmersive()
+            }
+
+            override fun onHideCustomView() {
+                val view = customView ?: return
+                fullscreenContainer.removeView(view)
+                fullscreenContainer.visibility = View.GONE
+                customView = null
+                toolbar.visibility = View.VISIBLE
+                findViewById<View>(R.id.bottombar).visibility = View.VISIBLE
+                requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+                exitImmersive()
+            }
+        }
+    }
+
+    @Suppress("DEPRECATION")
+    private fun enterImmersive() {
+        window.decorView.systemUiVisibility = (
+            View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+                or View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+                or View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+                or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+                or View.SYSTEM_UI_FLAG_FULLSCREEN
+                or View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+            )
+    }
+
+    @Suppress("DEPRECATION")
+    private fun exitImmersive() {
+        window.decorView.systemUiVisibility = View.SYSTEM_UI_FLAG_VISIBLE
     }
 
     /** Maps a request to an adblock-rust request-type string. */
     private fun requestType(request: WebResourceRequest): String {
         if (request.isForMainFrame) return "document"
+
+        val headers = request.requestHeaders
+
+        // Chromium sends Sec-Fetch-Dest, which maps almost 1:1 to adblock request
+        // types. This is far more accurate than guessing from the URL/extension.
+        val dest = headers
+            ?.entries
+            ?.firstOrNull { it.key.equals("Sec-Fetch-Dest", ignoreCase = true) }
+            ?.value
+            ?.lowercase()
+        when (dest) {
+            "document" -> return "document"
+            "iframe", "frame" -> return "subdocument"
+            "script", "worker", "sharedworker", "serviceworker" -> return "script"
+            "style" -> return "stylesheet"
+            "image" -> return "image"
+            "font" -> return "font"
+            "audio", "video", "track" -> return "media"
+            "object", "embed" -> return "object"
+            "empty" -> return "xhr"
+        }
+
+        // Fallback heuristics.
         val url = request.url.toString().lowercase()
-        val accept = request.requestHeaders
+        val accept = headers
             ?.entries
             ?.firstOrNull { it.key.equals("Accept", ignoreCase = true) }
             ?.value
@@ -158,7 +235,7 @@ class MainActivity : AppCompatActivity() {
             url.endsWith(".mp4") || url.endsWith(".m3u8") || url.endsWith(".webm") ||
                 accept.startsWith("video/") || accept.startsWith("audio/") -> "media"
             url.endsWith(".html") || accept.contains("text/html") -> "subdocument"
-            request.requestHeaders?.keys?.any { it.equals("X-Requested-With", ignoreCase = true) } == true -> "xhr"
+            headers?.keys?.any { it.equals("X-Requested-With", ignoreCase = true) } == true -> "xhr"
             else -> "other"
         }
     }

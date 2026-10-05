@@ -1,12 +1,10 @@
 <resources>
     <style name="MuufiBottomButton">
         <item name="android:layout_width">0dp</item>
-        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_height">match_parent</item>
         <item name="android:layout_weight">1</item>
         <item name="android:orientation">vertical</item>
         <item name="android:gravity">center</item>
-        <item name="android:paddingTop">6dp</item>
-        <item name="android:paddingBottom">6dp</item>
         <item name="android:clickable">true</item>
         <item name="android:focusable">true</item>
         <item name="android:background">?android:attr/selectableItemBackground</item>
@@ -15,8 +13,7 @@
     <style name="MuufiBottomLabel">
         <item name="android:layout_width">wrap_content</item>
         <item name="android:layout_height">wrap_content</item>
-        <item name="android:textSize">10sp</item>
+        <item name="android:textSize">9sp</item>
         <item name="android:textColor">@color/muted</item>
-        <item name="android:layout_marginTop">2dp</item>
     </style>
 </resources>
