@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no" />
+  <title>muufi</title>
+  <style>
+    :root { --bg:#0b1220; --card:#141c2e; --card2:#1b2540; --text:#e8ecf5; --muted:#9aa7c2; --accent:#2563eb; }
+    * { box-sizing: border-box; }
+    html, body { margin:0; background:var(--bg); color:var(--text);
+      font-family: system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; -webkit-tap-highlight-color:transparent; }
+    header { padding:18px 16px 10px; }
+    h1 { margin:0; font-size:22px; letter-spacing:.2px; }
+    p.sub { margin:4px 0 0; color:var(--muted); font-size:12px; }
+    main { padding:12px 16px 24px; display:grid; grid-template-columns:1fr; gap:12px; }
+    @media (min-width:560px){ main{ grid-template-columns:1fr 1fr; } }
+    button.src { display:flex; align-items:center; gap:14px; width:100%; text-align:left;
+      padding:16px; border:1px solid rgba(255,255,255,.07); border-radius:16px;
+      background:linear-gradient(160deg,var(--card2),var(--card)); color:var(--text); cursor:pointer; }
+    button.src:active { transform:scale(.98); border-color:var(--accent); }
+    .emoji { font-size:26px; width:30px; text-align:center; }
+    .meta { flex:1; min-width:0; }
+    .name { font-weight:600; font-size:16px; display:block; }
+    .sub2 { font-size:12px; color:var(--muted); display:block; margin-top:2px; }
+    .chev { color:var(--muted); font-size:18px; }
+    .hint { color:var(--muted); font-size:13px; text-align:center; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>muufi</h1>
+    <p class="sub">Tap a source to open it in the reader</p>
+  </header>
+  <main id="sources"></main>
+  <p class="hint" id="hint">Loading…</p>
+  <script>
+    (function () {
+      var listEl = document.getElementById('sources');
+      var hintEl = document.getElementById('hint');
+      function esc(s){ return String(s).replace(/[&<>"']/g, function(c){
+        return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+      function render(sources){
+        if(!sources || !sources.length){ hintEl.textContent='No sources configured.'; return; }
+        listEl.innerHTML = sources.map(function(s){
+          return '<button class="src" data-url="'+esc(s.url)+'">'
+            + '<span class="emoji">'+(s.icon||'🔗')+'</span>'
+            + '<span class="meta"><span class="name">'+esc(s.label)+'</span>'
+            + '<span class="sub2">'+esc(s.tag||s.url)+'</span></span>'
+            + '<span class="chev">›</span></button>';
+        }).join('');
+        hintEl.textContent = sources.length + ' sources · ad-blocked';
+      }
+      fetch('sites.json',{cache:'no-store'})
+        .then(function(r){ if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); })
+        .then(function(d){ render(d.sources); })
+        .catch(function(e){ hintEl.textContent='Could not load sources: '+e.message; });
+      listEl.addEventListener('click', function(e){
+        var card = e.target.closest('.src'); if(!card) return;
+        var url = card.getAttribute('data-url'); if(url) window.location.href = url;
+      });
+    })();
+  </script>
+</body>
+</html>

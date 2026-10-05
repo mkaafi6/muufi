@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="@color/bg"
+    android:fitsSystemWindows="true">
+
+    <!-- Top app bar -->
+    <androidx.appcompat.widget.Toolbar
+        android:id="@+id/toolbar"
+        android:layout_width="match_parent"
+        android:layout_height="?attr/actionBarSize"
+        android:background="@color/bar"
+        android:title="@string/app_name"
+        android:titleTextColor="@color/text" />
+
+    <!-- Content -->
+    <WebView
+        android:id="@+id/webview"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1" />
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="@color/bar_stroke" />
+
+    <!-- Bottom navigation bar -->
+    <LinearLayout
+        android:id="@+id/bottombar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:background="@color/bar"
+        android:paddingTop="6dp"
+        android:paddingBottom="6dp">
+
+        <LinearLayout
+            android:id="@+id/btnHome"
+            style="@style/MuufiBottomButton">
+
+            <ImageView
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:contentDescription="@string/home"
+                android:src="@drawable/ic_home"
+                android:tint="@color/text" />
+
+            <TextView style="@style/MuufiBottomLabel" android:text="@string/home" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/btnRefresh"
+            style="@style/MuufiBottomButton">
+
+            <ImageView
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:contentDescription="@string/refresh"
+                android:src="@drawable/ic_refresh"
+                android:tint="@color/text" />
+
+            <TextView style="@style/MuufiBottomLabel" android:text="@string/refresh" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/btnBack"
+            style="@style/MuufiBottomButton">
+
+            <ImageView
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:contentDescription="@string/back"
+                android:src="@drawable/ic_back"
+                android:tint="@color/text" />
+
+            <TextView style="@style/MuufiBottomLabel" android:text="@string/back" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/btnShare"
+            style="@style/MuufiBottomButton">
+
+            <ImageView
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:contentDescription="@string/share"
+                android:src="@drawable/ic_share"
+                android:tint="@color/text" />
+
+            <TextView style="@style/MuufiBottomLabel" android:text="@string/share" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/btnInfo"
+            style="@style/MuufiBottomButton">
+
+            <ImageView
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:contentDescription="@string/about"
+                android:src="@drawable/ic_info"
+                android:tint="@color/text" />
+
+            <TextView style="@style/MuufiBottomLabel" android:text="@string/about" />
+        </LinearLayout>
+    </LinearLayout>
+</LinearLayout>

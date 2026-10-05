@@ -1,0 +1,12 @@
+{
+  "app": "muufi",
+  "note": "Developer-managed source list. Edit here, push to main, rebuild the APK.",
+  "updated": "2026-10-05",
+  "sources": [
+    { "label": "BBC News",   "url": "https://www.bbc.com/news",  "icon": "🌍", "tag": "World" },
+    { "label": "Reuters",    "url": "https://www.reuters.com",   "icon": "📰", "tag": "Wire" },
+    { "label": "AP News",    "url": "https://apnews.com",        "icon": "🗞️", "tag": "Top stories" },
+    { "label": "NPR",        "url": "https://www.npr.org",       "icon": "🎙️", "tag": "Audio + text" },
+    { "label": "Al Jazeera", "url": "https://www.aljazeera.com", "icon": "📡", "tag": "Global" }
+  ]
+}

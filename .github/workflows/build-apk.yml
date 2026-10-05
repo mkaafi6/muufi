@@ -1,0 +1,78 @@
+name: Build Android APK
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Android SDK
+        run: |
+          SDK=""
+          for base in "$ANDROID_SDK_ROOT" "$ANDROID_HOME" /usr/local/lib/android/sdk "$HOME/Android/Sdk"; do
+            [ -n "$base" ] && [ -d "$base" ] || continue
+            SM=$(find "$base" -name sdkmanager -type f 2>/dev/null | head -1)
+            if [ -n "$SM" ]; then
+              SDK="$base"
+              echo "$(dirname "$SM")" >> "$GITHUB_PATH"
+            fi
+            [ -n "$SDK" ] && break
+          done
+          if [ -z "$SDK" ]; then echo "Android SDK not found"; exit 1; fi
+          echo "Using Android SDK: $SDK"
+          echo "ANDROID_SDK_ROOT=$SDK" >> "$GITHUB_ENV"
+          echo "ANDROID_HOME=$SDK" >> "$GITHUB_ENV"
+
+      - name: Install Android NDK + packages
+        run: |
+          sdkmanager --install "ndk;26.1.10909125" "platforms;android-34" "build-tools;34.0.0"
+          yes | sdkmanager --licenses >/dev/null 2>&1 || true
+          echo "NDK_HOME=$ANDROID_SDK_ROOT/ndk/26.1.10909125" >> "$GITHUB_ENV"
+          echo "ANDROID_NDK_HOME=$ANDROID_SDK_ROOT/ndk/26.1.10909125" >> "$GITHUB_ENV"
+          echo "ANDROID_NDK_ROOT=$ANDROID_SDK_ROOT/ndk/26.1.10909125" >> "$GITHUB_ENV"
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android
+
+      - name: Cache Rust build
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust/adblock
+
+      - name: Install cargo-ndk
+        run: cargo install cargo-ndk --locked
+
+      - name: Build adblock Rust library (.so)
+        run: |
+          cd rust/adblock
+          cargo ndk -t arm64-v8a -o ../../app/src/main/jniLibs build --release
+          ls -la ../../app/src/main/jniLibs/arm64-v8a
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.7"
+
+      - name: Build release APK
+        run: gradle :app:assembleRelease --no-daemon --stacktrace
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: muufi-release-apk
+          path: app/build/outputs/apk/release/*.apk
+          if-no-files-found: error

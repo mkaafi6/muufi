@@ -1,0 +1,21 @@
+# Build output
+.gradle/
+build/
+app/build/
+app/src/main/jniLibs/
+rust/adblock/target/
+
+# Local config
+local.properties
+
+# IDE / OS
+.idea/
+*.iml
+.DS_Store
+__MACOSX/
+._*
+
+# Signing
+*.keystore
+*.jks
+*.apk

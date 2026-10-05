@@ -1,0 +1,26 @@
+[package]
+name = "muufi_adblock"
+version = "0.1.0"
+edition = "2021"
+description = "JNI wrapper around adblock-rust for the muufi Android app"
+
+[lib]
+name = "muufi_adblock"
+crate-type = ["cdylib"]
+
+[dependencies]
+# default-features = false drops `single-thread`, making Engine Send + Sync
+# so it can live in a global. Cosmetic filtering is available by default.
+adblock = { version = "0.13", default-features = false, features = [
+    "embedded-domain-resolver",
+    "full-regex-handling",
+] }
+jni = "0.21"
+serde_json = "1"
+
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true

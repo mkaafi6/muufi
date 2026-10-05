@@ -1,0 +1,10 @@
+<resources>
+    <string name="app_name">muufi</string>
+    <string name="home">Home</string>
+    <string name="refresh">Refresh</string>
+    <string name="back">Back</string>
+    <string name="share">Share</string>
+    <string name="about">About</string>
+    <string name="about_title">About muufi</string>
+    <string name="about_body">muufi is a lightweight reader with a built-in ad blocker (powered by adblock-rust).\n\nSources are managed by the developer in the app configuration.</string>
+</resources>
