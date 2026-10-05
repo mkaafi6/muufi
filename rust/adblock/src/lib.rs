@@ -2,8 +2,9 @@
 //!
 //! Exposed to Kotlin via `com.mkaafi6.muufi.AdBlocker`:
 //!   nativeInit(filterDir) -> Boolean
-//!   nativeShouldBlock(url, sourceUrl, requestType, method) -> Boolean
-//!   nativeCosmetics(url) -> String (JSON)
+//!   nativeCheck(url, sourceUrl, requestType, method) -> String  ("B"|"R<body>"|"N")
+//!   nativeCosmetics(url) -> String  (JSON: hide/script/generichide)
+//!   nativeGenericSelectors(url, classesJson, idsJson) -> String (JSON array)
 
 use std::fs;
 use std::sync::OnceLock;
@@ -40,15 +41,26 @@ fn build_engine(dir: &str) -> Result<Engine, String> {
     Ok(Engine::new_with_filter_set(set))
 }
 
+fn new_jstring(env: &mut JNIEnv, value: &str) -> jstring {
+    match env.new_string(value) {
+        Ok(s) => s.into_raw(),
+        Err(_) => std::ptr::null_mut(),
+    }
+}
+
+fn read_string(env: &mut JNIEnv, value: &JString) -> Option<String> {
+    env.get_string(value).ok().map(String::from)
+}
+
 #[no_mangle]
 pub extern "system" fn Java_com_mkaafi6_muufi_AdBlocker_nativeInit<'local>(
     mut env: JNIEnv<'local>,
     _this: JObject<'local>,
     filter_dir: JString<'local>,
 ) -> jboolean {
-    let dir: String = match env.get_string(&filter_dir) {
-        Ok(s) => s.into(),
-        Err(_) => return JNI_FALSE,
+    let dir = match read_string(&mut env, &filter_dir) {
+        Some(v) => v,
+        None => return JNI_FALSE,
     };
 
     match build_engine(&dir) {
@@ -60,46 +72,44 @@ pub extern "system" fn Java_com_mkaafi6_muufi_AdBlocker_nativeInit<'local>(
     }
 }
 
+/// Network check. Returns a compact result:
+///   "B"        -> block the request
+///   "R" + body -> serve this replacement body (redirect resource)
+///   "N"        -> do nothing
 #[no_mangle]
-pub extern "system" fn Java_com_mkaafi6_muufi_AdBlocker_nativeShouldBlock<'local>(
+pub extern "system" fn Java_com_mkaafi6_muufi_AdBlocker_nativeCheck<'local>(
     mut env: JNIEnv<'local>,
     _this: JObject<'local>,
     url: JString<'local>,
     source: JString<'local>,
     request_type: JString<'local>,
     method: JString<'local>,
-) -> jboolean {
-    let url: String = match env.get_string(&url) {
-        Ok(s) => s.into(),
-        Err(_) => return JNI_FALSE,
+) -> jstring {
+    let url = match read_string(&mut env, &url) {
+        Some(v) => v,
+        None => return new_jstring(&mut env, "N"),
     };
-    let source: String = env
-        .get_string(&source)
-        .map(String::from)
-        .unwrap_or_default();
-    let request_type: String = env
-        .get_string(&request_type)
-        .map(String::from)
-        .unwrap_or_else(|_| "other".to_string());
-    let method: String = env
-        .get_string(&method)
-        .map(String::from)
-        .unwrap_or_else(|_| "GET".to_string());
+    let source = read_string(&mut env, &source).unwrap_or_default();
+    let request_type = read_string(&mut env, &request_type).unwrap_or_else(|| "other".to_string());
+    let method = read_string(&mut env, &method).unwrap_or_else(|| "GET".to_string());
 
     let engine = match ENGINE.get() {
         Some(e) => e,
-        None => return JNI_FALSE,
+        None => return new_jstring(&mut env, "N"),
     };
 
     match Request::new(&url, &source, &request_type, &method) {
         Ok(req) => {
-            if engine.check_network_request(&req).should_block() {
-                JNI_TRUE
+            let result = engine.check_network_request(&req);
+            if result.should_block() {
+                new_jstring(&mut env, "B")
+            } else if let Some(redirect) = result.redirect {
+                new_jstring(&mut env, &format!("R{}", redirect))
             } else {
-                JNI_FALSE
+                new_jstring(&mut env, "N")
             }
         }
-        Err(_) => JNI_FALSE,
+        Err(_) => new_jstring(&mut env, "N"),
     }
 }
 
@@ -109,14 +119,14 @@ pub extern "system" fn Java_com_mkaafi6_muufi_AdBlocker_nativeCosmetics<'local>(
     _this: JObject<'local>,
     url: JString<'local>,
 ) -> jstring {
-    let url: String = match env.get_string(&url) {
-        Ok(s) => s.into(),
-        Err(_) => return std::ptr::null_mut(),
+    let url = match read_string(&mut env, &url) {
+        Some(v) => v,
+        None => return new_jstring(&mut env, "{}"),
     };
 
     let engine = match ENGINE.get() {
         Some(e) => e,
-        None => return std::ptr::null_mut(),
+        None => return new_jstring(&mut env, "{}"),
     };
 
     let resources = engine.url_cosmetic_resources(&url);
@@ -129,8 +139,42 @@ pub extern "system" fn Java_com_mkaafi6_muufi_AdBlocker_nativeCosmetics<'local>(
     })
     .to_string();
 
-    match env.new_string(json) {
-        Ok(s) => s.into_raw(),
-        Err(_) => std::ptr::null_mut(),
-    }
+    new_jstring(&mut env, &json)
+}
+
+/// Returns additional generic selectors for newly-seen classes/ids (uBO-style
+/// dynamic element hiding). Inputs are JSON arrays of strings; output is a JSON
+/// array of CSS selectors.
+#[no_mangle]
+pub extern "system" fn Java_com_mkaafi6_muufi_AdBlocker_nativeGenericSelectors<'local>(
+    mut env: JNIEnv<'local>,
+    _this: JObject<'local>,
+    url: JString<'local>,
+    classes: JString<'local>,
+    ids: JString<'local>,
+) -> jstring {
+    let url = match read_string(&mut env, &url) {
+        Some(v) => v,
+        None => return new_jstring(&mut env, "[]"),
+    };
+    let classes_json = read_string(&mut env, &classes).unwrap_or_else(|| "[]".to_string());
+    let ids_json = read_string(&mut env, &ids).unwrap_or_else(|| "[]".to_string());
+
+    let engine = match ENGINE.get() {
+        Some(e) => e,
+        None => return new_jstring(&mut env, "[]"),
+    };
+
+    let class_list: Vec<String> = serde_json::from_str(&classes_json).unwrap_or_default();
+    let id_list: Vec<String> = serde_json::from_str(&ids_json).unwrap_or_default();
+
+    let resources = engine.url_cosmetic_resources(&url);
+    let selectors = engine.hidden_class_id_selectors(
+        class_list.iter().map(|s| s.as_str()),
+        id_list.iter().map(|s| s.as_str()),
+        &resources.exceptions,
+    );
+
+    let json = serde_json::to_string(&selectors).unwrap_or_else(|_| "[]".to_string());
+    new_jstring(&mut env, &json)
 }

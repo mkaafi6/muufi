@@ -78,10 +78,23 @@
 - Known gap: uBO **scriptlet/`$redirect` resources** are not loaded (adblock-rust's
   assembler only supports uBO's deprecated format).
 
+## v3 changes (Option A — stronger blocking)
+
+- **Document-start cosmetic hiding** via `addDocumentStartJavaScript` + a JS
+  bridge (`window.MuufiBridge`) — ads hidden before the page paints (no flash).
+- **Dynamic generic hiding** via `hidden_class_id_selectors`: a MutationObserver
+  batches new class/id names → native → extra CSS (uBO-style).
+- **`nativeCheck`** now honors **`$redirect`** (serves the replacement resource
+  instead of just blocking).
+- **Scriptlet injection** wired at document start (`injected_script`); populated
+  once uBO resources are bundled.
+- Reality: this is the ceiling for a WebView app. Literal uBO needs GeckoView
+  (~50–70 MB).
+
 ## TODO
 
 - [ ] Install on device; verify ads are blocked and fullscreen video works.
-- [ ] Optional: bundle uBO scriptlet resources for tougher sites.
+- [ ] Optional: bundle uBO scriptlet/`$redirect` resources (biggest remaining gap).
 - [ ] Optional: bundle uBO scriptlet/redirect resources (`use_resources`) for `##+js(...)`.
 - [ ] Optional: real release keystore + `$redirect` support.
 - [ ] User updates `app/src/main/assets/sites.json`; tell me when to change it.

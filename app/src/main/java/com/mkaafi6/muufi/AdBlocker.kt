@@ -15,19 +15,25 @@ object AdBlocker {
     /** Builds the engine from every *.txt file in [filterDir]. Returns true on success. */
     external fun nativeInit(filterDir: String): Boolean
 
-    /** True if the request should be blocked. */
-    external fun nativeShouldBlock(
+    /**
+     * Network check. Returns:
+     *   "B" -> block, "R" + body -> redirect resource, "N" -> allow.
+     */
+    external fun nativeCheck(
         url: String,
         sourceUrl: String,
         requestType: String,
         method: String
-    ): Boolean
+    ): String
 
     /**
      * Returns a JSON string: { "hide":[...selectors], "script":"...", "generichide":bool }
      * for the given page URL.
      */
     external fun nativeCosmetics(url: String): String
+
+    /** Returns a JSON array of extra selectors for newly-seen classes/ids. */
+    external fun nativeGenericSelectors(url: String, classesJson: String, idsJson: String): String
 
     @Volatile
     private var ready = false

@@ -6,6 +6,7 @@ import android.graphics.Bitmap
 import android.os.Bundle
 import android.view.View
 import android.webkit.CookieManager
+import android.webkit.JavascriptInterface
 import android.webkit.WebChromeClient
 import android.webkit.WebChromeClient.CustomViewCallback
 import android.webkit.WebResourceError
@@ -21,6 +22,8 @@ import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.Toolbar
 import androidx.webkit.WebViewAssetLoader
+import androidx.webkit.WebViewCompat
+import androidx.webkit.WebViewFeature
 import org.json.JSONObject
 import java.io.BufferedInputStream
 import java.io.ByteArrayInputStream
@@ -107,11 +110,18 @@ class MainActivity : AppCompatActivity() {
                     val type = requestType(request)
                     val method = request.method ?: "GET"
                     val source = view?.url ?: ""
-                    if (AdBlocker.nativeShouldBlock(url.toString(), source, type, method)) {
-                        // Empty body => effectively blocked.
-                        WebResourceResponse("text/plain", "utf-8", ByteArrayInputStream(ByteArray(0)))
-                    } else {
-                        null
+                    when (val result = AdBlocker.nativeCheck(url.toString(), source, type, method)) {
+                        "B" -> WebResourceResponse("text/plain", "utf-8", ByteArrayInputStream(ByteArray(0)))
+                        else -> if (result.startsWith("R")) {
+                            val body = result.substring(1)
+                            WebResourceResponse(
+                                redirectMime(body),
+                                "utf-8",
+                                ByteArrayInputStream(body.toByteArray(Charsets.UTF_8))
+                            )
+                        } else {
+                            null
+                        }
                     }
                 } catch (t: Throwable) {
                     null
@@ -142,6 +152,12 @@ class MainActivity : AppCompatActivity() {
         }
 
         webView.setOnLongClickListener { true }
+
+        // JS bridge + document-start script for early, uBO-style element hiding.
+        webView.addJavascriptInterface(MuufiBridge(), "MuufiBridge")
+        if (WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)) {
+            WebViewCompat.addDocumentStartJavaScript(webView, BOOTSTRAP_JS, setOf("*"))
+        }
 
         // Handles HTML5 fullscreen video (e.g. YouTube).
         webView.webChromeClient = object : WebChromeClient() {
@@ -308,6 +324,115 @@ class MainActivity : AppCompatActivity() {
             super.onBackPressed()
         }
     }
+
+    /** Exposed to page JavaScript as `window.MuufiBridge`. */
+    private inner class MuufiBridge {
+        @JavascriptInterface
+        fun payload(url: String): String = try {
+            AdBlocker.nativeCosmetics(url)
+        } catch (t: Throwable) {
+            "{}"
+        }
+
+        @JavascriptInterface
+        fun generic(url: String, classesJson: String, idsJson: String): String = try {
+            AdBlocker.nativeGenericSelectors(url, classesJson, idsJson)
+        } catch (t: Throwable) {
+            "[]"
+        }
+    }
+
+    private fun redirectMime(body: String): String = when {
+        body.startsWith("GIF8") -> "image/gif"
+        body.length >= 8 && body.regionMatches(4, "ftyp", 0, 4) -> "video/mp4"
+        else -> "application/javascript"
+    }
+
+    // Document-start bootstrap: hides ads before the page paints, and keeps
+    // hiding dynamically-added ones (uBO-style), via the MuufiBridge.
+    private val BOOTSTRAP_JS = """
+        (function () {
+          if (window.__muufiBootstrap) return;
+          window.__muufiBootstrap = true;
+          var bridge = window.MuufiBridge;
+          var applied = {};
+
+          function styleEl() {
+            var s = document.getElementById('muufi-cosmetic');
+            if (!s) {
+              s = document.createElement('style');
+              s.id = 'muufi-cosmetic';
+              (document.head || document.documentElement).appendChild(s);
+            }
+            return s;
+          }
+
+          function apply(selectors) {
+            if (!selectors || !selectors.length) return;
+            var fresh = [];
+            for (var i = 0; i < selectors.length; i++) {
+              if (selectors[i] && !applied[selectors[i]]) {
+                applied[selectors[i]] = 1;
+                fresh.push(selectors[i]);
+              }
+            }
+            if (!fresh.length) return;
+            styleEl().textContent += fresh.join(',') + '{display:none !important;}';
+          }
+
+          try {
+            if (bridge) {
+              var res = JSON.parse(bridge.payload(location.href) || '{}');
+              if (res.hide) apply(res.hide);
+              if (res.script) { try { (0, eval)(res.script); } catch (e) {} }
+            }
+          } catch (e) {}
+
+          var pc = {}, pi = {}, timer = null;
+          function flush() {
+            timer = null;
+            if (!bridge) return;
+            var c = Object.keys(pc), i = Object.keys(pi);
+            pc = {}; pi = {};
+            if (!c.length && !i.length) return;
+            try {
+              var sel = JSON.parse(bridge.generic(location.href, JSON.stringify(c), JSON.stringify(i)) || '[]');
+              apply(sel);
+            } catch (e) {}
+          }
+
+          var scanned = 0;
+          function collect(roots) {
+            for (var r = 0; r < roots.length; r++) {
+              var el = roots[r];
+              if (!el || el.nodeType !== 1) continue;
+              var list;
+              try { list = [el].concat(Array.prototype.slice.call(el.querySelectorAll('[class],[id]'))); }
+              catch (e) { list = [el]; }
+              for (var k = 0; k < list.length; k++) {
+                if (scanned++ > 4000) break;
+                var e = list[k];
+                if (e.id) pi[e.id] = 1;
+                if (e.classList) for (var c = 0; c < e.classList.length; c++) pc[e.classList[c]] = 1;
+              }
+            }
+            if (timer) return;
+            timer = setTimeout(flush, 700);
+          }
+
+          try {
+            new MutationObserver(function (muts) {
+              var added = [];
+              for (var m = 0; m < muts.length; m++) {
+                var an = muts[m].addedNodes;
+                for (var a = 0; a < an.length; a++) added.push(an[a]);
+              }
+              if (added.length) collect(added);
+            }).observe(document.documentElement || document, { childList: true, subtree: true });
+            collect([document.documentElement]);
+          } catch (e) {}
+        })();
+    """.trimIndent()
 
     /**
      * Copies the bundled filter lists into filesDir/filters once.
