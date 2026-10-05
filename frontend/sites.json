@@ -3,7 +3,7 @@
   "note": "Hosted on GitHub Pages — edit this file on github.com and the app updates with no APK rebuild.",
   "updated": "2026-10-05",
   "sources": [
-    { "label": "Movies 1",   "url": "https://www.movy.sx",  "icon": "🌍", "tag": "World" },
+    { "label": "Movies 1",   "url": "https://flystream.net ",  "icon": "🌍", "tag": "World" },
     { "label": "Movies 2",    "url": "https://popcornmovies.ac/ ",   "icon": "📰", "tag": "Wire" },
     { "label": "AP News",    "url": "https://apnews.com",        "icon": "🗞️", "tag": "Top stories" },
     { "label": "NPR",        "url": "https://www.npr.org",       "icon": "🎙️", "tag": "Audio + text" },
