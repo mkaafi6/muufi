@@ -1,7 +1,6 @@
 package com.mkaafi6.muufi
 
 import android.annotation.SuppressLint
-import android.content.Intent
 import android.content.pm.ActivityInfo
 import android.graphics.Bitmap
 import android.os.Bundle
@@ -285,7 +284,6 @@ class MainActivity : AppCompatActivity() {
             }
         }
         findViewById<LinearLayout>(R.id.btnBack).setOnClickListener { goBack() }
-        findViewById<LinearLayout>(R.id.btnShare).setOnClickListener { share() }
         findViewById<LinearLayout>(R.id.btnInfo).setOnClickListener {
             AlertDialog.Builder(this)
                 .setTitle(R.string.about_title)
@@ -293,15 +291,6 @@ class MainActivity : AppCompatActivity() {
                 .setPositiveButton(android.R.string.ok, null)
                 .show()
         }
-    }
-
-    private fun share() {
-        val url = webView.url ?: return
-        val intent = Intent(Intent.ACTION_SEND).apply {
-            type = "text/plain"
-            putExtra(Intent.EXTRA_TEXT, url)
-        }
-        startActivity(Intent.createChooser(intent, getString(R.string.share)))
     }
 
     private fun goBack() {

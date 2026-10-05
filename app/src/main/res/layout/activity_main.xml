@@ -84,20 +84,6 @@
             </LinearLayout>
 
             <LinearLayout
-                android:id="@+id/btnShare"
-                style="@style/MuufiBottomButton">
-
-                <ImageView
-                    android:layout_width="20dp"
-                    android:layout_height="20dp"
-                    android:contentDescription="@string/share"
-                    android:src="@drawable/ic_share"
-                    android:tint="@color/text" />
-
-                <TextView style="@style/MuufiBottomLabel" android:text="@string/share" />
-            </LinearLayout>
-
-            <LinearLayout
                 android:id="@+id/btnInfo"
                 style="@style/MuufiBottomButton">
 
