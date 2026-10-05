@@ -3,10 +3,10 @@
   "note": "Hosted on GitHub Pages — edit this file on github.com and the app updates with no APK rebuild.",
   "updated": "2026-10-05",
   "sources": [
-    { "label": "Movies 1",   "url": "https://flystream.net ",  "icon": "🌍", "tag": "World" },
-    { "label": "Movies 2",    "url": "https://popcornmovies.ac/ ",   "icon": "📰", "tag": "Wire" },
-    { "label": "Arabic Movies 1",    "url": "https://shaahiied4u.net/ ",        "icon": "🗞️", "tag": "Top stories" },
-    { "label": "Sports 1",        "url": "https://main.fiirsohada.club/",       "icon": "🎙️", "tag": "Audio + text" },
-    { "label": "Al Jazeera", "url": "https://www.aljazeera.com", "icon": "📡", "tag": "Global" }
+    { "label": "Movies 1",   "url": "https://flystream.net ",  "icon": "🎬", "tag": "World" },
+    { "label": "Movies 2",    "url": "https://popcornmovies.ac/ ",   "icon": "🎬", "tag": "Wire" },
+    { "label": "Arabic Movies 1",    "url": "https://shaahiied4u.net/ ",        "icon": "🎦", "tag": "Top stories" },
+    { "label": "Sports 1",        "url": "https://main.fiirsohada.club/",       "icon": "⚽", "tag": " " },
+    { "label": "Sports 2", "url": "https://www.bintv.cc ", "icon": "⚽", "tag": " " }
   ]
 }
