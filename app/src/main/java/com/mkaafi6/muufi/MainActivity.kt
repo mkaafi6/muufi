@@ -6,6 +6,7 @@ import android.graphics.Bitmap
 import android.os.Bundle
 import android.view.View
 import android.webkit.CookieManager
+import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
 import android.webkit.WebSettings
@@ -28,7 +29,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var webView: WebView
     private lateinit var assetLoader: WebViewAssetLoader
 
-    private val homeUrl = "https://appassets.androidplatform.net/assets/launcher.html"
+    private val homeUrl = "https://mkaafi6.github.io/muufi/"
+    private val offlineUrl = "https://appassets.androidplatform.net/assets/offline.html"
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -121,6 +123,16 @@ class MainActivity : AppCompatActivity() {
                     injectCosmetics(url)
                 }
             }
+
+            override fun onReceivedError(
+                view: WebView?,
+                request: WebResourceRequest?,
+                error: WebResourceError?
+            ) {
+                if (request?.isForMainFrame == true && view?.url != offlineUrl) {
+                    view?.loadUrl(offlineUrl)
+                }
+            }
         }
 
         webView.setOnLongClickListener { true }
@@ -187,7 +199,14 @@ class MainActivity : AppCompatActivity() {
 
     private fun wireBottomBar() {
         findViewById<LinearLayout>(R.id.btnHome).setOnClickListener { webView.loadUrl(homeUrl) }
-        findViewById<LinearLayout>(R.id.btnRefresh).setOnClickListener { webView.reload() }
+        findViewById<LinearLayout>(R.id.btnRefresh).setOnClickListener {
+            val current = webView.url
+            if (current == null || current.startsWith("https://appassets.androidplatform.net")) {
+                webView.loadUrl(homeUrl)
+            } else {
+                webView.reload()
+            }
+        }
         findViewById<LinearLayout>(R.id.btnBack).setOnClickListener { goBack() }
         findViewById<LinearLayout>(R.id.btnShare).setOnClickListener { share() }
         findViewById<LinearLayout>(R.id.btnInfo).setOnClickListener {

@@ -31,9 +31,10 @@
   first run → compiled into `adblock::Engine` in a background thread.
 - `WebViewClient.shouldInterceptRequest` → `AdBlocker.nativeShouldBlock(...)`.
 - `url_cosmetic_resources` → hide-selectors CSS + scriptlets injected per page.
-- `WebViewAssetLoader` serves the bundled `launcher.html` / `sites.json` over
-  `https://appassets.androidplatform.net/`.
-- Home screen = bundled `launcher.html` (also published nowhere; purely local).
+- `WebViewAssetLoader` serves only the bundled `offline.html` fallback (shown
+  when the network is unavailable).
+- Home screen = **GitHub Pages** (`frontend/index.html` + `frontend/sites.json`),
+  loaded at `https://mkaafi6.github.io/muufi/`.
 
 ## adblock-rust API pinned (v0.13.3)
 

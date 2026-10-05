@@ -22,11 +22,17 @@ Android **status bar** (clock / battery / camera cutout) and **navigation bar**
 - `url_cosmetic_resources()` supplies element-hiding selectors + scriptlets, which
   are injected into each page.
 
-## Source list (developer-managed)
+## Launcher + source list (GitHub Pages)
 
-Edit `app/src/main/assets/sites.json`, commit, push to `main`, and the APK rebuilds.
-End users never edit anything. Sources currently: BBC News, Reuters, AP News, NPR,
-Al Jazeera.
+The home screen is a static site hosted on **GitHub Pages**:
+
+**https://mkaafi6.github.io/muufi/**
+
+Edit `frontend/sites.json` (on github.com or locally) and push — the launcher
+updates in ~30s with **no APK rebuild**. The app loads this URL as its home screen,
+so changing links never requires a new APK.
+
+Sources currently: BBC News, Reuters, AP News, NPR, Al Jazeera.
 
 ## Build / download
 
@@ -39,11 +45,11 @@ Push to `main` → GitHub Actions **Build Android APK** → download the
 app/src/main/
   java/com/mkaafi6/muufi/  MainActivity.kt, AdBlocker.kt   (Kotlin + JNI)
   assets/filters/          gzipped filter lists
-  assets/sites.json        source list
-  assets/launcher.html     home screen
+  assets/offline.html      offline fallback page
   res/                     layout, theme, vector icons, launcher icon (TV)
+frontend/                  launcher site (index.html + sites.json) → GitHub Pages
 rust/adblock/              Rust cdylib (adblock-rust + JNI)
-.github/workflows/         cloud APK build
+.github/workflows/         cloud APK build + Pages deploy
 ```
 
 ## Notes

@@ -1,6 +1,6 @@
 {
   "app": "muufi",
-  "note": "Developer-managed source list. Edit here, push to main, rebuild the APK.",
+  "note": "Hosted on GitHub Pages — edit this file on github.com and the app updates with no APK rebuild.",
   "updated": "2026-10-05",
   "sources": [
     { "label": "BBC News",   "url": "https://www.bbc.com/news",  "icon": "🌍", "tag": "World" },

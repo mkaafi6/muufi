@@ -50,7 +50,7 @@
         }).join('');
         hintEl.textContent = sources.length + ' sources · ad-blocked';
       }
-      fetch('sites.json',{cache:'no-store'})
+      fetch('sites.json?ts='+Date.now(), {cache:'no-store'})
         .then(function(r){ if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); })
         .then(function(d){ render(d.sources); })
         .catch(function(e){ hintEl.textContent='Could not load sources: '+e.message; });
